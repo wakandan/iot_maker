@@ -9,11 +9,20 @@
 #include <Ticker.h>
 Ticker ticker;
 
-WiFiServer server(80);
+// for RC switch
+#include <RCSwitch.h>
+
+ESP8266WebServer server(80);
 
 const int SUCCESS_CODE=200;
 const char* CONTENT_TYPE="text/plain";
 const char* DEFAULT_RESPONSE="1";
+const int DOOR_CODE_UP=3962048;
+const int DOOR_CODE_DOWN=3961859;
+const int PORT_DOOR_SEND=D5;
+const int DOOR_CODE_BIT_SIZE=24;
+
+RCSwitch rfDoorSendSwitch = RCSwitch();
 
 void tick()
 {
@@ -33,11 +42,24 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 }
 
 void handle_door_up() {
+  Serial.println("handle door up");
+  rfDoorSendSwitch.send(DOOR_CODE_UP, DOOR_CODE_BIT_SIZE);
+  delay(2000);
   server.send(SUCCESS_CODE, CONTENT_TYPE, DEFAULT_RESPONSE);
+  Serial.println("handle door up done");
 }
 
 void handle_door_down() {
+  Serial.println("handle door down");
+  rfDoorSendSwitch.send(DOOR_CODE_DOWN, DOOR_CODE_BIT_SIZE);
+  delay(2000);
   server.send(SUCCESS_CODE, CONTENT_TYPE, DEFAULT_RESPONSE);
+  Serial.println("handle door down done");
+}
+
+void handle_not_found() {
+  Serial.println("not found");
+  server.send(SUCCESS_CODE, CONTENT_TYPE, "not found");
 }
 
 void setup() {
@@ -75,9 +97,13 @@ void setup() {
   //keep LED on
   digitalWrite(BUILTIN_LED, LOW);
 
+  //set up rc switch send
+  rfDoorSendSwitch.enableTransmit(PORT_DOOR_SEND);
+
   Serial.println("starting wifi server");
   server.on("/door_up", handle_door_up);
   server.on("/door_down", handle_door_down);
+  server.onNotFound(handle_not_found);
   server.begin();
   Serial.println("started wifi server");
 }
@@ -85,4 +111,6 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
+  //let the server handle client connections
+  server.handleClient();
 }
